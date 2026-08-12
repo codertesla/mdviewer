@@ -1,31 +1,33 @@
 /* ---------- 主题变量 ----------
-   暗色：墨绿系配色 #0F0F0F / #232D3F / #005B41 / #008170
-   （文字、行内代码等局部色在绿色系基础上提亮，保证对比度）
-   亮色：中性冷灰底 + 蓝紫强调 */
+   配色板：暖橙 × 冷灰蓝
+   #f4a261 沙橙（强调） / #d35400 橙棕（深强调）
+   #b8c4c8 浅灰蓝（边框） / #8c9db0 蓝灰（次级） / #5e7f94 钢蓝灰（深面板）
+   #1e1e1e 近黑（暗色底 / 亮色文字）
+   （面板过渡色为原色系的深调，保证文字对比度） */
 
 :root {
   color-scheme: light;
-  --bg: #f6f7f9;
+  --bg: #f3f6f7;
   --panel: #ffffff;
-  --panel2: #ffffff;
-  --text: #1f2328;
-  --muted: #667085;
-  --faint: #98a2b3;
-  --border: #e5e8ec;
-  --border-strong: #d3d9e0;
-  --accent: #3b82f6;
-  --accent-soft: #2563eb;
+  --panel2: #f8fafb;
+  --text: #1e1e1e;
+  --muted: #5e7f94;
+  --faint: #8c9db0;
+  --border: #b8c4c8;
+  --border-strong: #8c9db0;
+  --accent: #d35400;
+  --accent-soft: #b34400;
   --accent-text: #ffffff;
-  --danger: #d64545;
-  --danger-bg: rgba(214, 69, 69, 0.12);
-  --code-bg: #f2f3f6;
-  --code-text: #cf3476;
-  --quote-bg: #f3f5f8;
-  --table-head-bg: #f3f4f6;
-  --veil-bg: rgba(59, 130, 246, 0.08);
-  --selection: rgba(59, 130, 246, 0.18);
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 1px 2px rgba(16, 24, 40, 0.05), 0 6px 20px rgba(16, 24, 40, 0.06);
+  --danger: #c53c3c;
+  --danger-bg: rgba(197, 60, 60, 0.1);
+  --code-bg: #f0f2f3;
+  --code-text: #d35400;
+  --quote-bg: #faf6f1;
+  --table-head-bg: #eef1f2;
+  --veil-bg: rgba(211, 84, 0, 0.08);
+  --selection: rgba(211, 84, 0, 0.14);
+  --shadow-sm: 0 1px 2px rgba(30, 30, 30, 0.06);
+  --shadow-md: 0 1px 2px rgba(30, 30, 30, 0.06), 0 6px 20px rgba(30, 30, 30, 0.07);
   --radius: 12px;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
@@ -35,28 +37,28 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f0f0f;
-  --panel: #232d3f;
-  --panel2: #1b2230;
-  --text: #edf3f2;
-  --muted: #9fb0b4;
-  --faint: #73858b;
-  --border: #2e3a4c;
-  --border-strong: #43536f;
-  --accent: #008170;
-  --accent-soft: #00a98f;
-  --accent-strong: #005b41;
+  --bg: #1e1e1e;
+  --panel: #2f3b46;
+  --panel2: #28323b;
+  --text: #e8ebee;
+  --muted: #b8c4c8;
+  --faint: #8c9db0;
+  --border: #3d4c5a;
+  --border-strong: #5e7f94;
+  --accent: #f4a261;
+  --accent-soft: #d35400;
+  --accent-strong: #d35400;
   --accent-text: #ffffff;
   --danger: #ff7b72;
   --danger-bg: rgba(255, 123, 114, 0.14);
-  --code-bg: #1a222f;
-  --code-text: #00b08e;
-  --quote-bg: #1a222f;
-  --table-head-bg: #2e3a4c;
-  --veil-bg: rgba(0, 129, 112, 0.14);
-  --selection: rgba(0, 169, 143, 0.3);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --code-bg: #242c33;
+  --code-text: #f4a261;
+  --quote-bg: #2a343d;
+  --table-head-bg: #33424f;
+  --veil-bg: rgba(244, 162, 97, 0.12);
+  --selection: rgba(244, 162, 97, 0.26);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -182,11 +184,11 @@ body {
   background: var(--accent-strong, var(--accent));
   border-color: var(--accent-strong, var(--accent));
   color: var(--accent-text);
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 1px 2px rgba(211, 84, 0, 0.25);
 }
 
 [data-theme="dark"] .btn-primary {
-  box-shadow: 0 1px 3px rgba(0, 129, 112, 0.3);
+  box-shadow: 0 1px 3px rgba(244, 162, 97, 0.3);
 }
 
 .btn-primary:hover {
