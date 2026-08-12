@@ -17,6 +17,17 @@
 
   marked.setOptions({ gfm: true, breaks: true });
 
+  // marked 不过滤 HTML：Markdown 里的 <script> 或 onerror 会直接在页面里执行，
+  // 所以渲染前一律经过 DOMPurify。禁掉 <style> 是为了防止文档里的 CSS 泄漏到整个应用。
+  const SANITIZE_CONFIG = { FORBID_TAGS: ["style"] };
+
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName !== "A") return;
+    if (!/^https?:/i.test(node.getAttribute("href") || "")) return;
+    node.setAttribute("target", "_blank");
+    node.setAttribute("rel", "noopener noreferrer");
+  });
+
   const DRAFT_KEY = "md-preview-draft";
   const TITLE_BASE = "MD 预览";
   let currentDocName = null;
@@ -137,6 +148,17 @@ console.log(greet("世界"));
       "'": "&#39;",
     }[c]));
 
+  const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/gu;
+
+  // 中日韩文本没有空格分词，按空白切会把整段算成一个词，所以汉字逐字计数、
+  // 拉丁字母按连续串计数。
+  function countWords(text) {
+    const cjk = (text.match(CJK_RE) || []).length;
+    const rest = text.replace(CJK_RE, " ");
+    const latin = (rest.match(/[\p{L}\p{N}][\p{L}\p{N}'’_-]*/gu) || []).length;
+    return cjk + latin;
+  }
+
   function slugify(text, used) {
     let s = text
       .trim()
@@ -169,11 +191,11 @@ console.log(greet("世界"));
   function enhanceTables() {
     preview.querySelectorAll("table").forEach((table) => {
       const rows = [...table.querySelectorAll("tr")];
-      if (rows.length < 3) return;
+      if (rows.length < 2) return;
       const colCount = rows[0].children.length;
       for (let c = 0; c < colCount; c++) {
         const cells = rows.slice(1).map((r) => r.children[c]).filter(Boolean);
-        if (cells.length < 3) continue;
+        if (!cells.length) continue;
         const numeric = cells.filter((td) =>
           /^[-+]?\d[\d,.]*(%|℃|°|万|亿)?$/.test(td.textContent.trim())
         ).length;
@@ -283,10 +305,12 @@ console.log(greet("世界"));
 
   function openToc() {
     toc.classList.add("open");
+    tocToggle.setAttribute("aria-expanded", "true");
   }
 
   function closeToc() {
     toc.classList.remove("open");
+    tocToggle.setAttribute("aria-expanded", "false");
   }
 
   tocToggle.addEventListener("click", () => {
@@ -372,22 +396,33 @@ console.log(greet("世界"));
 
   /* ---------- 主渲染 ---------- */
 
+  function toSafeHtml(text) {
+    try {
+      return DOMPurify.sanitize(marked.parse(text), SANITIZE_CONFIG);
+    } catch (err) {
+      console.error("Markdown 渲染失败", err);
+      return `<p class="render-error">渲染失败，以下是原始文本。</p><pre><code>${escapeHtml(text)}</code></pre>`;
+    }
+  }
+
   function render() {
     const text = editor.value;
-    preview.innerHTML = text.trim() ? marked.parse(text) : PLACEHOLDER_HTML;
+    preview.innerHTML = text.trim() ? toSafeHtml(text) : PLACEHOLDER_HTML;
     enhanceCodeBlocks();
     enhanceTables();
     buildToc();
     updateScrollUI();
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
-    wordCountEl.textContent = text.length ? `${text.length} 字符 / ${words} 词` : "0 字符";
+    wordCountEl.textContent = text.length
+      ? `${text.length} 字符 / ${countWords(text)} 词`
+      : "0 字符";
   }
 
   let timer = null;
   let draftTimer = null;
   editor.addEventListener("input", () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(render, 120);
+    // 长文档每次都要重新解析并重建 DOM，稍微放宽节流避免输入卡顿。
+    timer = setTimeout(render, editor.value.length > 40000 ? 300 : 120);
     if (draftTimer) clearTimeout(draftTimer);
     draftTimer = setTimeout(saveDraft, 400);
   });
@@ -434,16 +469,26 @@ console.log(greet("世界"));
     fileInput.click();
   });
 
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
+  const MAX_FILE_MB = 2;
+
+  function importFile(file) {
     if (!file) return;
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      showToast(`文件超过 ${MAX_FILE_MB}MB，暂不支持`);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const content = String(reader.result);
       loadText(content, file.name, true);
       saveDoc(file.name, content);
     };
+    reader.onerror = () => showToast("文件读取失败，请重试");
     reader.readAsText(file);
+  }
+
+  fileInput.addEventListener("change", () => {
+    importFile(fileInput.files[0]);
     fileInput.value = "";
   });
 
@@ -579,12 +624,13 @@ console.log(greet("世界"));
       let css = "";
       try {
         const res = await fetch("styles.css");
+        if (!res.ok) throw new Error(String(res.status));
         css = await res.text();
       } catch {
-        /* 离线或本地直开时忽略 */
+        /* file:// 直开时 fetch 会被拦，只能导出无样式的 HTML */
       }
       const theme = document.documentElement.dataset.theme;
-      const exportTitle = (currentDocName || "Markdown").replace(/</g, "&lt;");
+      const exportTitle = escapeHtml(currentDocName || "Markdown");
       const html = `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="${theme}">
 <head>
@@ -604,7 +650,7 @@ console.log(greet("世界"));
       a.download = `${base}.html`;
       a.click();
       URL.revokeObjectURL(a.href);
-      showToast("已导出 HTML");
+      showToast(css ? "已导出 HTML" : "已导出，但样式缺失（请用 http 方式打开本页）");
     })();
   }
 
@@ -735,13 +781,7 @@ console.log(greet("世界"));
       showToast("请拖入 .md / .markdown / .txt 文件");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = String(reader.result);
-      loadText(content, file.name, true);
-      saveDoc(file.name, content);
-    };
-    reader.readAsText(file);
+    importFile(file);
   });
 
   /* ---------- 主题 ---------- */
@@ -769,10 +809,12 @@ console.log(greet("世界"));
   };
 
   function switchTab(name) {
-    tabs.edit.classList.toggle("active", name === "edit");
-    tabs.preview.classList.toggle("active", name === "preview");
-    panes.edit.classList.toggle("active", name === "edit");
-    panes.preview.classList.toggle("active", name === "preview");
+    Object.entries(tabs).forEach(([key, tab]) => {
+      const on = key === name;
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", String(on));
+      panes[key].classList.toggle("active", on);
+    });
     if (name === "edit") editor.focus();
   }
 

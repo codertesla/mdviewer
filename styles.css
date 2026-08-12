@@ -426,12 +426,6 @@ body.reading-mode #icon-compress {
   outline: none;
 }
 
-.editor-pane.dragover {
-  border-color: var(--accent);
-  background: var(--veil-bg);
-  box-shadow: 0 0 0 1px var(--accent);
-}
-
 .preview-pane {
   position: relative;
 }
@@ -484,6 +478,16 @@ body.reading-mode #icon-compress {
   border-radius: 4px;
   background: var(--code-bg);
   color: var(--muted);
+}
+
+.render-error {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--veil-bg);
+  color: var(--muted);
+  font-size: 13px;
 }
 
 /* ---------- Scrollbars ---------- */
@@ -780,6 +784,9 @@ body.reading-mode .toc-toggle,
 body.reading-mode .back-top {
   position: fixed;
   right: 20px;
+}
+
+body.reading-mode .toc-toggle {
   opacity: 1;
   visibility: visible;
 }
@@ -1337,8 +1344,7 @@ body.reading-mode .back-top {
 }
 
 @media (hover: none) {
-  .toc-toggle,
-  .back-top {
+  .toc-toggle {
     opacity: 1;
     visibility: visible;
   }

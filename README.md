@@ -2,7 +2,7 @@
 
 一个简约的 Markdown 实时渲染工具：输入、上传或拖入 Markdown 文档，右侧即时渲染为排版良好的 HTML，支持全屏阅读、自动目录、亮暗主题切换。
 
-纯原生 HTML / CSS / JavaScript 实现，无框架、无构建步骤，唯一的第三方依赖是本地化的 [marked.js](https://marked.js.org/)（35KB）解析库。
+纯原生 HTML / CSS / JavaScript 实现，无框架、无构建步骤。第三方依赖只有两个本地化的库：[marked](https://marked.js.org/) 负责解析 Markdown，[DOMPurify](https://github.com/cure53/DOMPurify) 负责过滤渲染结果里的危险 HTML。
 
 ## 功能特性
 
@@ -17,14 +17,14 @@
 - **表格阅读优化**：粘性表头、数字列自动右对齐
 - **阅读进度条 + 回到顶部**：长文档浏览更顺手
 - **导出 HTML**：一键导出为内嵌样式的独立 HTML 文件
+- **XSS 防护**：渲染前经 DOMPurify 过滤，文档里的 `<script>`、`onerror`、`javascript:` 链接不会执行；站外链接自动带 `rel="noopener"`
 
 ## 快速开始
 
-无需安装，直接双击 `index.html` 即可使用：
+页面本身零构建，双击 `index.html` 就能用。不过「导出 HTML」需要读取 `styles.css`，`file://` 下会被浏览器拦住，所以推荐起一个静态服务：
 
 ```bash
-# 或本地起一个静态服务
-python3 -m http.server 8080
+npm run dev      # 等价于 python3 -m http.server 8080
 # 浏览器打开 http://localhost:8080
 ```
 
@@ -33,8 +33,22 @@ python3 -m http.server 8080
 已配置 Workers Static Assets，登录 Cloudflare 后一键发布：
 
 ```bash
-npx wrangler deploy
+npx wrangler deploy   # 或 npm run deploy
 ```
+
+安全响应头（CSP、`nosniff`、`Referrer-Policy` 等）由 `_headers` 提供，由 Cloudflare 在边缘注入，该文件本身不会对外提供。
+
+## 开发
+
+npm 只用于管理依赖和跑测试，**运行页面不需要 Node**。
+
+```bash
+npm install
+npm test         # jsdom 冒烟测试：HTML 过滤、GFM 渲染、目录、字数统计
+npm run vendor   # 把 node_modules 里的 marked / DOMPurify 同步到 lib/
+```
+
+升级依赖：改 `package.json` 里的版本号 → `npm install` → `npm run vendor` → `npm test`。`lib/` 下的文件是提交进仓库的产物，这样部署时无需任何构建步骤。
 
 ## 使用说明
 
@@ -49,23 +63,33 @@ npx wrangler deploy
 | 导出 | 顶栏「导出 HTML」或 `⌘/Ctrl+S`，文件名跟随当前文档 |
 | 打开文件 | 顶栏按钮或 `⌘/Ctrl+O` |
 | 切换阅读模式 | 顶栏按钮或 `⌘/Ctrl+\`，`Esc` 退出 |
+| 展开 / 收起目录 | 阅读模式下按 `T` |
 
 ## 项目结构
 
 ```
-mdviewer/
-├── index.html        # 页面结构
-├── styles.css        # 样式与主题变量
-├── app.js            # 渲染、文档库、阅读模式等逻辑
-├── favicon.svg       # 站点图标
-└── lib/
-    └── marked.min.js # marked 解析库（本地化）
+md2HTML/
+├── index.html          # 页面结构
+├── styles.css          # 样式与主题变量
+├── app.js              # 渲染、文档库、阅读模式等逻辑
+├── 404.html            # 自定义 404 页
+├── favicon.svg         # 站点图标
+├── _headers            # Cloudflare 安全响应头（CSP 等）
+├── .assetsignore       # 部署时排除的文件
+├── wrangler.jsonc      # Cloudflare Workers 配置
+├── lib/                # 本地化的浏览器端依赖（提交进仓库）
+│   ├── marked.umd.js   # Markdown 解析
+│   └── purify.min.js   # HTML 过滤
+└── scripts/
+    ├── vendor.mjs      # 同步依赖到 lib/
+    └── smoke-test.mjs  # jsdom 冒烟测试
 ```
 
 ## 技术说明
 
-- 零构建：无需 Node / npm，浏览器直接运行
-- 数据存储：文档库与主题偏好存于 `localStorage`（上限约 5MB，超大文档会提示保存失败）
+- 零构建：页面运行不需要 Node / npm，浏览器直接打开即可
+- 数据存储：草稿、文档库与主题偏好存于 `localStorage`（上限约 5MB，超大文档会提示保存失败）
+- 导入限制：单个文件上限 2MB，超出会提示；文档库最多保留 20 篇，按时间淘汰
 - 兼容性：现代浏览器（Chrome / Edge / Safari / Firefox），移动端自动切换为编辑 / 预览 Tab 布局
 
 ## License
