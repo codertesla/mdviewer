@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#1e1e1e"/>
-  <path d="M7 10v12l5-6 5 6V10" stroke="#f4a261" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="MD 预览">
+  <rect width="32" height="32" rx="8" fill="#161a1f"/>
+  <!-- M: BL → TL → valley → TR → BR (center folds down) -->
+  <path d="M8 25V8l8 14 8-14v17" fill="none" stroke="#f4a261" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

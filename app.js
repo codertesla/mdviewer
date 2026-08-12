@@ -3,7 +3,6 @@
 
   const editor = document.getElementById("editor");
   const preview = document.getElementById("preview");
-  const filenameEl = document.getElementById("filename");
   const wordCountEl = document.getElementById("word-count");
   const fileInput = document.getElementById("file-input");
   const editorPane = document.getElementById("editor-pane");
@@ -14,8 +13,62 @@
   const tocClose = document.getElementById("toc-close");
   const backTop = document.getElementById("back-top");
   const progress = document.getElementById("reading-progress");
+  const toastEl = document.getElementById("toast");
 
   marked.setOptions({ gfm: true, breaks: true });
+
+  const DRAFT_KEY = "md-preview-draft";
+  const TITLE_BASE = "MD 预览";
+  let currentDocName = null;
+  let toastTimer = null;
+
+  function showToast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+  }
+
+  function setDocTitle(name) {
+    document.title = name ? `${name} - ${TITLE_BASE}` : `${TITLE_BASE} - Markdown 实时渲染`;
+  }
+
+  function setFilename(name) {
+    currentDocName = name || null;
+    setDocTitle(name);
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          content: editor.value,
+          name: currentDocName,
+          reading: document.body.classList.contains("reading-mode"),
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {
+      /* quota - ignore draft */
+    }
+  }
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data.content !== "string") return null;
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+  }
 
   const PLACEHOLDER_HTML = `<div class="placeholder">
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -23,19 +76,19 @@
     <path d="M14 3v5h5"/>
     <path d="M9 13h6M9 17h6"/>
   </svg>
-  <p>输入内容后自动渲染，或点击「示例」查看效果</p>
+  <p>在左侧输入 Markdown，或拖入文件。<br>也可点顶栏「示例」快速体验。</p>
 </div>`;
 
   const SAMPLE = `# Markdown 实时预览
 
-这是一个 **简洁** 的 Markdown 渲染工具，支持 *输入*、*上传* 与 *拖拽* 三种方式导入文档，点击右上角的全屏按钮即可进入纯阅读模式。
+这是一个 **简洁** 的 Markdown 渲染工具，支持 *输入*、*上传* 与 *拖拽* 三种方式导入文档。点右上角全屏按钮即可进入纯阅读模式。
 
 ## 功能特性
 
-- [x] 输入即渲染，无需任何操作
+- [x] 输入即渲染，无需额外操作
 - [x] 支持上传 \`.md\` / \`.markdown\` 文件
 - [x] 全屏阅读 + 自动目录导航
-- [ ] 一键导出渲染后的 HTML
+- [x] 一键导出渲染后的 HTML
 
 ## 代码示例
 
@@ -327,23 +380,23 @@ console.log(greet("世界"));
     buildToc();
     updateScrollUI();
     const words = text.trim().split(/\s+/).filter(Boolean).length;
-    wordCountEl.textContent = text.length ? `${text.length} 字符 · ${words} 词` : "0 字符";
+    wordCountEl.textContent = text.length ? `${text.length} 字符 / ${words} 词` : "0 字符";
   }
 
   let timer = null;
+  let draftTimer = null;
   editor.addEventListener("input", () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(render, 120);
+    if (draftTimer) clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 400);
   });
 
   function loadText(text, name, openReading = false) {
     editor.value = text;
     render();
-    if (name) {
-      currentDocName = name;
-      filenameEl.textContent = name;
-      filenameEl.hidden = false;
-    }
+    if (name) setFilename(name);
+    saveDraft();
     jumpScroll(preview, 0);
     jumpScroll(getScroller(), 0);
     if (openReading && !document.body.classList.contains("reading-mode")) {
@@ -353,14 +406,26 @@ console.log(greet("世界"));
 
   /* ---------- 操作按钮 ---------- */
 
+  document.getElementById("btn-brand").addEventListener("click", () => {
+    if (document.body.classList.contains("reading-mode")) setReading(false);
+    else {
+      switchTab("edit");
+      editor.focus();
+    }
+  });
+
   document.getElementById("btn-sample").addEventListener("click", () => {
+    if (editor.value.trim() && !confirm("载入示例将覆盖当前内容，继续？")) return;
     loadText(SAMPLE, "示例.md");
     editor.focus();
   });
 
   document.getElementById("btn-clear").addEventListener("click", () => {
+    if (editor.value.trim() && !confirm("确定清空当前内容？")) return;
     editor.value = "";
-    filenameEl.hidden = true;
+    setFilename(null);
+    setReading(false);
+    clearDraft();
     render();
     editor.focus();
   });
@@ -390,7 +455,6 @@ console.log(greet("世界"));
   const docsList = document.getElementById("docs-list");
   const docsEmpty = document.getElementById("docs-empty");
   const docsCount = document.getElementById("docs-count");
-  let currentDocName = null;
 
   function loadDocs() {
     try {
@@ -407,7 +471,7 @@ console.log(greet("世界"));
       localStorage.setItem(DOCS_KEY, JSON.stringify(docs));
       return true;
     } catch {
-      alert("存储空间不足，该文档未能保存");
+      showToast("存储空间不足，该文档未能保存");
       return false;
     }
   }
@@ -453,7 +517,6 @@ console.log(greet("世界"));
       nameBtn.append(nameSpan, meta);
       nameBtn.addEventListener("click", () => {
         loadText(d.content, d.name, true);
-        currentDocName = d.name;
         closeDocsPanel();
         renderDocsPanel();
       });
@@ -464,10 +527,7 @@ console.log(greet("世界"));
       del.title = "从文档库删除";
       del.setAttribute("aria-label", `删除 ${d.name}`);
       del.addEventListener("click", () => {
-        if (d.name === currentDocName) {
-          currentDocName = null;
-          filenameEl.hidden = true;
-        }
+        if (d.name === currentDocName) setFilename(null);
         deleteDoc(d.name);
       });
 
@@ -503,61 +563,76 @@ console.log(greet("世界"));
     if (!loadDocs().length) return;
     if (confirm("确定清空全部已保存文档？")) {
       localStorage.removeItem(DOCS_KEY);
-      currentDocName = null;
-      filenameEl.hidden = true;
+      setFilename(null);
       renderDocsPanel();
+      showToast("已清空文档库");
     }
   });
 
-  document.getElementById("btn-export").addEventListener("click", async () => {
+  function exportHtml() {
     const body = preview.querySelector(".placeholder") ? "" : preview.innerHTML;
     if (!body) {
-      alert("暂无内容可导出");
+      showToast("暂无内容可导出");
       return;
     }
-    let css = "";
-    try {
-      const res = await fetch("styles.css");
-      css = await res.text();
-    } catch {
-      /* 离线或本地直开时忽略 */
-    }
-    const theme = document.documentElement.dataset.theme;
-    const html = `<!DOCTYPE html>
+    return (async () => {
+      let css = "";
+      try {
+        const res = await fetch("styles.css");
+        css = await res.text();
+      } catch {
+        /* 离线或本地直开时忽略 */
+      }
+      const theme = document.documentElement.dataset.theme;
+      const exportTitle = (currentDocName || "Markdown").replace(/</g, "&lt;");
+      const html = `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="${theme}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${(document.title || "Markdown").replace(/</g, "&lt;")}</title>
+<title>${exportTitle}</title>
 <style>${css}</style>
 </head>
 <body>
 <main class="preview" style="max-width:800px;margin:0 auto;min-height:100vh;">${body}</main>
 </body>
 </html>`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "export.html";
-    a.click();
-    URL.revokeObjectURL(a.href);
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      const base = (currentDocName || "export").replace(/\.(md|markdown|txt)$/i, "");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${base}.html`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("已导出 HTML");
+    })();
+  }
+
+  document.getElementById("btn-export").addEventListener("click", () => {
+    exportHtml();
   });
 
   /* ---------- 全屏阅读模式 ---------- */
 
   const btnFullscreen = document.getElementById("btn-fullscreen");
 
-  function setReading(on) {
+  function setReading(on, opts = {}) {
+    const focusPane = opts.focus !== false;
     document.body.classList.toggle("reading-mode", on);
     btnFullscreen.setAttribute("aria-pressed", String(on));
-    btnFullscreen.title = on ? "退出全屏（Esc）" : "全屏阅读（Esc 退出）";
+    btnFullscreen.title = on
+      ? "退出预览（Esc 或 ⌘/Ctrl+\\）"
+      : "预览模式（⌘/Ctrl+\\，Esc 退出）";
     closeToc();
+    closeDocsPanel();
     jumpScroll(preview, 0);
     jumpScroll(document.scrollingElement, 0);
     updateScrollUI();
+    saveDraft();
+    if (!focusPane) return;
     if (on) {
       preview.focus({ preventScroll: true });
-    } else {
+    } else if (editor.value.trim()) {
       editor.focus();
     }
   }
@@ -566,18 +641,61 @@ console.log(greet("世界"));
     setReading(!document.body.classList.contains("reading-mode"));
   });
 
+  function isTypingTarget(el) {
+    if (!el || el === document.body) return false;
+    const tag = el.tagName;
+    return (
+      tag === "TEXTAREA" ||
+      tag === "INPUT" ||
+      el.isContentEditable
+    );
+  }
+
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    if (!docsPanel.hidden) {
-      closeDocsPanel();
+    const mod = e.metaKey || e.ctrlKey;
+
+    if (mod && e.key.toLowerCase() === "o") {
+      e.preventDefault();
+      if (!document.body.classList.contains("reading-mode")) fileInput.click();
       return;
     }
-    if (toc.classList.contains("open")) {
-      closeToc();
+
+    if (mod && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      exportHtml();
       return;
     }
-    if (document.body.classList.contains("reading-mode")) {
-      setReading(false);
+
+    if (mod && e.key === "\\") {
+      e.preventDefault();
+      setReading(!document.body.classList.contains("reading-mode"));
+      return;
+    }
+
+    if (e.key === "Escape") {
+      if (!docsPanel.hidden) {
+        closeDocsPanel();
+        return;
+      }
+      if (toc.classList.contains("open")) {
+        closeToc();
+        return;
+      }
+      if (document.body.classList.contains("reading-mode")) {
+        setReading(false);
+      }
+      return;
+    }
+
+    if (
+      !mod &&
+      e.key.toLowerCase() === "t" &&
+      !isTypingTarget(e.target) &&
+      document.body.classList.contains("reading-mode")
+    ) {
+      if (toc.hidden) return;
+      if (toc.classList.contains("open")) closeToc();
+      else openToc();
     }
   });
 
@@ -614,7 +732,7 @@ console.log(greet("世界"));
         /^(text\/|application\/octet-stream)/.test(f.type)
     );
     if (!file) {
-      alert("请拖入 .md / .markdown / .txt 文件");
+      showToast("请拖入 .md / .markdown / .txt 文件");
       return;
     }
     const reader = new FileReader();
@@ -663,6 +781,17 @@ console.log(greet("世界"));
 
   if (window.innerWidth <= 820) switchTab("edit");
 
+  const draft = loadDraft();
+  if (draft && draft.content) {
+    editor.value = draft.content;
+    if (draft.name) setFilename(draft.name);
+  }
+
   render();
   renderDocsPanel();
+
+  // Restore preview-only mode after content is ready (upload/open persists this)
+  if (draft && draft.content && draft.reading) {
+    setReading(true, { focus: false });
+  }
 })();

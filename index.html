@@ -3,52 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MD Viewer · Markdown 实时预览</title>
+  <title>MD 预览 - Markdown 实时渲染</title>
+  <meta name="description" content="本地 Markdown 实时预览：输入、拖入或打开 .md，即时渲染，支持全屏阅读与目录导航。">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>
+    <button type="button" class="brand" id="btn-brand" title="回到编辑">
+      <svg class="logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 20V4l7 12 7-12v16"/>
       </svg>
-      <h1>MD Viewer</h1>
-    </div>
+      <h1>MD 预览</h1>
+    </button>
     <div class="topbar-actions">
-      <span id="filename" class="filename" hidden></span>
-      <button id="btn-sample" class="btn" type="button" title="载入示例文档">
+      <button id="btn-sample" class="btn edit-only" type="button" title="载入示例文档">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg>
-        <span>示例</span>
+        <span class="btn-label">示例</span>
       </button>
-      <button id="btn-clear" class="btn" type="button" title="清空内容">
+      <button id="btn-clear" class="btn edit-only" type="button" title="清空内容">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
-        <span>清空</span>
+        <span class="btn-label">清空</span>
       </button>
-      <button id="btn-open" class="btn btn-primary" type="button" title="打开本地 Markdown 文件">
+      <button id="btn-open" class="btn btn-primary edit-only" type="button" title="打开本地 Markdown 文件（⌘/Ctrl+O）">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20V7a2 2 0 0 1 2-2h4l2 3h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z"/></svg>
-        <span>打开 .md</span>
+        <span class="btn-label">打开 .md</span>
       </button>
-      <button id="btn-export" class="btn" type="button" title="导出为独立 HTML 文件">
+      <button id="btn-export" class="btn" type="button" title="导出为独立 HTML 文件（⌘/Ctrl+S）">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
-        <span>导出 HTML</span>
+        <span class="btn-label">导出 HTML</span>
       </button>
       <div class="docs-wrap">
         <button id="btn-docs" class="btn" type="button" title="已保存的文档" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-          <span>文档</span>
+          <span class="btn-label">文档</span>
           <span id="docs-count" class="badge" hidden>0</span>
         </button>
         <div id="docs-panel" class="docs-panel" hidden>
           <div class="docs-head">已保存的文档</div>
-          <div id="docs-empty" class="docs-empty">暂无已保存的文档<br>上传或拖入的 .md 文件会自动保存在这里</div>
+          <div id="docs-empty" class="docs-empty">暂无已保存的文档<br>上传或拖入的 .md 会自动出现在这里</div>
           <ul id="docs-list" class="docs-list"></ul>
           <div class="docs-foot">
             <button id="docs-clear" class="btn btn-small" type="button">清空全部</button>
           </div>
         </div>
       </div>
-      <button id="btn-fullscreen" class="btn btn-icon" type="button" title="全屏阅读（Esc 退出）" aria-pressed="false">
+      <button id="btn-fullscreen" class="btn btn-icon" type="button" title="预览模式（⌘/Ctrl+\\，Esc 退出）" aria-pressed="false">
         <svg id="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
         <svg id="icon-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h5M20 20v-5h-5M4 4v5h5M20 4v5h-5"/></svg>
       </button>
@@ -63,7 +63,7 @@
     <div class="toolbar-left">
       <span id="word-count" class="count">0 字符</span>
       <span class="count-sep" aria-hidden="true"></span>
-      <span id="view-hint" class="count">编辑区与预览区实时同步</span>
+      <span id="view-hint" class="count">左右栏同步滚动</span>
     </div>
     <div class="tabs" id="mobile-tabs">
       <button id="tab-edit" class="tab active" type="button">编辑</button>
@@ -78,7 +78,7 @@
     </section>
     <section class="pane preview-pane" id="preview-pane">
       <div class="pane-label">预览</div>
-      <article id="preview" class="preview" aria-label="渲染结果"></article>
+      <article id="preview" class="preview" aria-label="渲染结果" tabindex="-1"></article>
       <button id="toc-toggle" class="btn btn-icon toc-toggle" type="button" title="目录" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
       </button>
@@ -102,6 +102,7 @@
 
   <input type="file" id="file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
   <div id="drop-veil" class="drop-veil" hidden>松开以导入文件</div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="lib/marked.min.js"></script>
   <script src="app.js"></script>
