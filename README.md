@@ -28,6 +28,14 @@ python3 -m http.server 8080
 # 浏览器打开 http://localhost:8080
 ```
 
+## 部署（Cloudflare Workers）
+
+已配置 Workers Static Assets，登录 Cloudflare 后一键发布：
+
+```bash
+npx wrangler deploy
+```
+
 ## 使用说明
 
 | 操作 | 方式 |

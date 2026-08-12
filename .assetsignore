@@ -1,0 +1,10 @@
+.git
+.gitignore
+.wrangler
+node_modules
+*.md
+LICENSE
+wrangler.toml
+wrangler.jsonc
+.assetsignore
+.DS_Store
