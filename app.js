@@ -4,6 +4,9 @@
   const editor = document.getElementById("editor");
   const preview = document.getElementById("preview");
   const wordCountEl = document.getElementById("word-count");
+  const documentNameEl = document.getElementById("document-name");
+  const saveStatusEl = document.getElementById("save-status");
+  const copyButton = document.getElementById("btn-copy");
   const fileInput = document.getElementById("file-input");
   const editorPane = document.getElementById("editor-pane");
   const dropVeil = document.getElementById("drop-veil");
@@ -47,6 +50,8 @@
   function setFilename(name) {
     currentDocName = name || null;
     setDocTitle(name);
+    documentNameEl.textContent = name || "未命名文档";
+    documentNameEl.hidden = !name;
   }
 
   function saveDraft() {
@@ -60,8 +65,10 @@
           updatedAt: Date.now(),
         })
       );
+      saveStatusEl.textContent = "已自动保存";
     } catch {
       /* quota - ignore draft */
+      saveStatusEl.textContent = "未能自动保存";
     }
   }
 
@@ -87,7 +94,15 @@
     <path d="M14 3v5h5"/>
     <path d="M9 13h6M9 17h6"/>
   </svg>
-  <p>在左侧输入 Markdown，或拖入文件。<br>也可点顶栏「示例」快速体验。</p>
+  <div class="placeholder-copy">
+    <strong>从一篇文档开始</strong>
+    <p>直接在左侧输入、粘贴 Markdown，或打开本地文件。</p>
+  </div>
+  <div class="placeholder-actions">
+    <button class="empty-action empty-action-primary" type="button" data-empty-action="open">打开 .md 文件</button>
+    <button class="empty-action" type="button" data-empty-action="sample">载入示例</button>
+  </div>
+  <p class="placeholder-hint">支持拖入 .md、.markdown 和 .txt 文件</p>
 </div>`;
 
   const SAMPLE = `# Markdown 实时预览
@@ -415,6 +430,7 @@ console.log(greet("世界"));
     wordCountEl.textContent = text.length
       ? `${text.length} 字符 / ${countWords(text)} 词`
       : "0 字符";
+    copyButton.disabled = !text.trim();
   }
 
   let timer = null;
@@ -467,6 +483,12 @@ console.log(greet("世界"));
 
   document.getElementById("btn-open").addEventListener("click", () => {
     fileInput.click();
+  });
+
+  preview.addEventListener("click", (event) => {
+    const action = event.target.closest("[data-empty-action]")?.dataset.emptyAction;
+    if (action === "open") fileInput.click();
+    if (action === "sample") document.getElementById("btn-sample").click();
   });
 
   const MAX_FILE_MB = 2;
@@ -657,6 +679,26 @@ console.log(greet("世界"));
   document.getElementById("btn-export").addEventListener("click", () => {
     exportHtml();
   });
+
+  async function copyHtml() {
+    const body = preview.querySelector(".placeholder") ? "" : preview.innerHTML;
+    if (!body) return;
+    try {
+      await navigator.clipboard.writeText(body);
+      showToast("HTML 已复制到剪贴板");
+    } catch {
+      const helper = document.createElement("textarea");
+      helper.value = body;
+      helper.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+      document.body.appendChild(helper);
+      helper.select();
+      const copied = document.execCommand("copy");
+      helper.remove();
+      showToast(copied ? "HTML 已复制到剪贴板" : "复制失败，请使用导出功能");
+    }
+  }
+
+  copyButton.addEventListener("click", copyHtml);
 
   /* ---------- 全屏阅读模式 ---------- */
 

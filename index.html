@@ -63,8 +63,10 @@
 
   <div class="toolbar">
     <div class="toolbar-left">
+      <span id="document-name" class="document-name" hidden>未命名文档</span>
       <span id="word-count" class="count">0 字符</span>
       <span class="count-sep" aria-hidden="true"></span>
+      <span id="save-status" class="count" aria-live="polite">本地自动保存</span>
       <span id="view-hint" class="count">左右栏同步滚动</span>
     </div>
     <div class="tabs" id="mobile-tabs" role="tablist" aria-label="编辑 / 预览切换">
@@ -75,11 +77,16 @@
 
   <main class="workspace">
     <section class="pane editor-pane" id="editor-pane">
-      <div class="pane-label">编辑</div>
+      <div class="pane-label">
+        <span>编辑</span><span class="pane-meta">Markdown</span>
+      </div>
       <textarea id="editor" class="editor" spellcheck="false" placeholder="在此输入 Markdown 文本，或拖入 .md 文件…" aria-label="Markdown 编辑器"></textarea>
     </section>
     <section class="pane preview-pane" id="preview-pane">
-      <div class="pane-label">预览</div>
+      <div class="pane-label pane-label-preview">
+        <span>预览</span><span class="pane-meta">实时渲染</span>
+        <button id="btn-copy" class="copy-btn" type="button" disabled>复制 HTML</button>
+      </div>
       <article id="preview" class="preview" aria-label="渲染结果" tabindex="-1"></article>
       <button id="toc-toggle" class="btn btn-icon toc-toggle" type="button" title="目录（阅读模式下按 T）" aria-label="目录" aria-expanded="false" aria-controls="toc" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
