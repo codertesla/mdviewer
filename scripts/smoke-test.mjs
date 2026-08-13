@@ -131,6 +131,15 @@ const a = 1;
 }
 
 {
+  const preview = await renderMarkdown(win, "# 长文\n\n```js\nconst a = 1;\n```\n");
+  check("标题带复制链接", !!preview.querySelector("h1 .heading-anchor"));
+  check("标题文本不含锚点符号", preview.querySelector("h1")?.textContent.trim() === "长文");
+  check("代码块带复制按钮", preview.querySelector(".copy-code")?.dataset.ui === "true");
+  check("跳转面板默认隐藏", win.document.getElementById("jump").hidden === true);
+  check("快捷键面板默认隐藏", win.document.getElementById("help").hidden === true);
+}
+
+{
   const preview = await renderMarkdown(win, "");
   check("空内容回到占位图", !!preview.querySelector(".placeholder"));
   check("空内容清空目录", win.document.getElementById("toc-toggle").hidden === true);

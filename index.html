@@ -6,7 +6,7 @@
   <title>MD 预览 - Markdown 实时渲染</title>
   <meta name="description" content="本地 Markdown 实时预览：输入、拖入或打开 .md，即时渲染，支持全屏阅读与目录导航。">
   <meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#161a1f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#1a1f26" media="(prefers-color-scheme: dark)">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -18,6 +18,11 @@
       </svg>
       <h1>MD 预览</h1>
     </button>
+    <div id="reading-meta" class="reading-meta" hidden>
+      <span id="reading-filename" class="reading-filename">未命名文档</span>
+      <span class="count-sep" aria-hidden="true"></span>
+      <span id="reading-words" class="reading-words">0 字符</span>
+    </div>
     <div class="topbar-actions">
       <button id="btn-sample" class="btn edit-only" type="button" title="载入示例文档">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg>
@@ -50,6 +55,17 @@
           </div>
         </div>
       </div>
+      <div class="type-size reading-only" role="group" aria-label="正文字号">
+        <button id="btn-type-down" class="btn btn-icon" type="button" title="减小字号" aria-label="减小字号">
+          <span class="type-glyph type-glyph-sm">A</span>
+        </button>
+        <button id="btn-type-up" class="btn btn-icon" type="button" title="增大字号" aria-label="增大字号">
+          <span class="type-glyph type-glyph-lg">A</span>
+        </button>
+      </div>
+      <button id="btn-help" class="btn btn-icon reading-only" type="button" title="快捷键（?）" aria-label="快捷键">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8M12 17h.01"/></svg>
+      </button>
       <button id="btn-fullscreen" class="btn btn-icon" type="button" title="预览模式（⌘/Ctrl+\\，Esc 退出）" aria-label="切换预览模式" aria-pressed="false">
         <svg id="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
         <svg id="icon-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20v-5h5M20 20v-5h-5M4 4v5h5M20 4v5h-5"/></svg>
@@ -100,9 +116,12 @@
   <nav id="toc" class="toc" aria-label="目录" hidden>
     <div class="toc-head">
       <span>目录</span>
-      <button id="toc-close" class="btn btn-icon" type="button" title="关闭目录" aria-label="关闭目录">
+      <button id="toc-close" class="btn btn-icon" type="button" title="收起目录（T）" aria-label="收起目录">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
+    </div>
+    <div class="toc-filter-wrap" id="toc-filter-wrap" hidden>
+      <input id="toc-filter" class="toc-filter" type="search" placeholder="筛选章节" autocomplete="off" aria-label="筛选章节">
     </div>
     <ul id="toc-list" class="toc-list"></ul>
   </nav>
@@ -111,6 +130,30 @@
 
   <input type="file" id="file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
   <div id="drop-veil" class="drop-veil" hidden>松开以导入文件</div>
+  <div id="jump" class="overlay jump" hidden role="dialog" aria-modal="true" aria-labelledby="jump-label">
+    <div class="overlay-card">
+      <label id="jump-label" class="overlay-title" for="jump-input">跳转到章节</label>
+      <input id="jump-input" class="overlay-input" type="search" placeholder="输入标题关键词" autocomplete="off">
+      <ul id="jump-list" class="jump-list" role="listbox" aria-label="匹配的章节"></ul>
+      <p class="overlay-hint">↑↓ 选择，Enter 跳转，Esc 关闭</p>
+    </div>
+  </div>
+  <div id="help" class="overlay help" hidden role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="overlay-card">
+      <h2 id="help-title" class="overlay-title">快捷键</h2>
+      <dl class="help-list">
+        <div><dt><kbd>⌘</kbd><kbd>O</kbd></dt><dd>打开文件</dd></div>
+        <div><dt><kbd>⌘</kbd><kbd>S</kbd></dt><dd>导出 HTML</dd></div>
+        <div><dt><kbd>⌘</kbd><kbd>\</kbd></dt><dd>切换阅读模式</dd></div>
+        <div><dt><kbd>⌘</kbd><kbd>K</kbd></dt><dd>跳转到章节</dd></div>
+        <div><dt><kbd>T</kbd></dt><dd>展开 / 收起目录</dd></div>
+        <div><dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>上一节 / 下一节</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>显示快捷键</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>关闭或退出阅读</dd></div>
+      </dl>
+      <button id="help-close" class="btn" type="button">关闭</button>
+    </div>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="lib/marked.umd.js"></script>

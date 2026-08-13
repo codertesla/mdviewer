@@ -17,6 +17,17 @@
   const backTop = document.getElementById("back-top");
   const progress = document.getElementById("reading-progress");
   const toastEl = document.getElementById("toast");
+  const readingMeta = document.getElementById("reading-meta");
+  const readingFilename = document.getElementById("reading-filename");
+  const readingWords = document.getElementById("reading-words");
+  const tocFilter = document.getElementById("toc-filter");
+  const tocFilterWrap = document.getElementById("toc-filter-wrap");
+  const jumpEl = document.getElementById("jump");
+  const jumpInput = document.getElementById("jump-input");
+  const jumpList = document.getElementById("jump-list");
+  const helpEl = document.getElementById("help");
+  const btnTypeDown = document.getElementById("btn-type-down");
+  const btnTypeUp = document.getElementById("btn-type-up");
 
   marked.setOptions({ gfm: true, breaks: true });
 
@@ -52,6 +63,14 @@
     setDocTitle(name);
     documentNameEl.textContent = name || "未命名文档";
     documentNameEl.hidden = !name;
+    updateReadingMeta();
+  }
+
+  function updateReadingMeta() {
+    const on = document.body.classList.contains("reading-mode") && !!editor.value.trim();
+    readingMeta.hidden = !on;
+    readingFilename.textContent = currentDocName || "未命名文档";
+    readingWords.textContent = wordCountEl.textContent;
   }
 
   function saveDraft() {
@@ -193,13 +212,34 @@ console.log(greet("世界"));
   /* ---------- 渲染 ---------- */
 
   function enhanceCodeBlocks() {
-    preview.querySelectorAll("pre code[class^='language-']").forEach((block) => {
+    preview.querySelectorAll("pre code").forEach((block) => {
       const pre = block.parentElement;
-      if (pre.querySelector(".lang-badge")) return;
-      const badge = document.createElement("span");
-      badge.className = "lang-badge";
-      badge.textContent = block.className.replace("language-", "");
-      pre.appendChild(badge);
+      if (!pre) return;
+      if (block.className.startsWith("language-") && !pre.querySelector(".lang-badge")) {
+        const badge = document.createElement("span");
+        badge.className = "lang-badge";
+        badge.textContent = block.className.replace("language-", "");
+        pre.appendChild(badge);
+      }
+      if (pre.querySelector(".copy-code")) return;
+      const btn = document.createElement("button");
+      btn.className = "copy-code";
+      btn.type = "button";
+      btn.dataset.ui = "true";
+      btn.textContent = "复制";
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(block.textContent);
+          btn.textContent = "已复制";
+          showToast("代码已复制");
+          setTimeout(() => {
+            btn.textContent = "复制";
+          }, 1200);
+        } catch {
+          showToast("复制失败");
+        }
+      });
+      pre.appendChild(btn);
     });
   }
 
@@ -251,15 +291,76 @@ console.log(greet("世界"));
       a.addEventListener("click", (e) => {
         e.preventDefault();
         scrollToHeading(tocItems[i]);
-        if (toc.classList.contains("open")) closeToc();
+        if (toc.classList.contains("open") && !isWideReading()) closeToc();
       });
     });
+
+    tocItems.forEach(({ h }) => addHeadingAnchor(h));
 
     const hasToc = tocItems.length > 0;
     toc.hidden = !hasToc;
     tocToggle.hidden = !hasToc;
-    if (!hasToc) toc.classList.remove("open");
+    tocFilterWrap.hidden = tocItems.length <= 8;
+    if (tocFilterWrap.hidden) tocFilter.value = "";
+    else applyTocFilter();
+    if (!hasToc) {
+      toc.classList.remove("open");
+      closeJump();
+    }
+    syncTocExpanded();
     updateTocActive();
+  }
+
+  function addHeadingAnchor(h) {
+    if (h.querySelector(".heading-anchor")) return;
+    const a = document.createElement("a");
+    a.className = "heading-anchor";
+    a.href = `#${h.id}`;
+    a.setAttribute("aria-label", "复制此标题链接");
+    a.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const url = `${location.origin}${location.pathname}#${h.id}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("已复制标题链接");
+      } catch {
+        location.hash = h.id;
+      }
+    });
+    h.appendChild(a);
+  }
+
+  function applyTocFilter() {
+    const q = tocFilter.value.trim().toLowerCase();
+    tocList.querySelectorAll("a").forEach((a) => {
+      a.parentElement.hidden = !(!q || a.textContent.toLowerCase().includes(q));
+    });
+  }
+
+  tocFilter.addEventListener("input", applyTocFilter);
+
+  const TOC_PREF_KEY = "md-preview-toc";
+  const WIDE_TOC = "(min-width: 1360px)";
+
+  window.matchMedia(WIDE_TOC).addEventListener("change", () => {
+    if (document.body.classList.contains("reading-mode")) syncTocExpanded();
+  });
+
+  function isWideReading() {
+    return document.body.classList.contains("reading-mode") && window.matchMedia(WIDE_TOC).matches;
+  }
+
+  function applyTocPref() {
+    const collapsed = localStorage.getItem(TOC_PREF_KEY) === "collapsed";
+    document.body.classList.toggle("toc-collapsed", collapsed);
+    syncTocExpanded();
+  }
+
+  function syncTocExpanded() {
+    const expanded = isWideReading()
+      ? !document.body.classList.contains("toc-collapsed") && !toc.hidden
+      : toc.classList.contains("open");
+    tocToggle.setAttribute("aria-expanded", String(expanded));
   }
 
   let programmatic = false;
@@ -307,11 +408,12 @@ console.log(greet("世界"));
     const rect = item.h.getBoundingClientRect();
     const scTop =
       sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top;
-    smoothScrollTo(sc, sc.scrollTop + rect.top - scTop - 16);
+    const offset = sc === document.scrollingElement ? 72 : 16;
+    smoothScrollTo(sc, sc.scrollTop + rect.top - scTop - offset);
   }
 
-  function updateTocActive() {
-    if (!tocItems.length) return;
+  function currentHeadingIndex() {
+    if (!tocItems.length) return -1;
     const sc = getScroller();
     const top =
       sc === document.scrollingElement ? 0 : sc.getBoundingClientRect().top;
@@ -321,18 +423,59 @@ console.log(greet("世界"));
       if (tocItems[i].h.getBoundingClientRect().top <= mark) idx = i;
       else break;
     }
+    return idx;
+  }
+
+  function jumpHeading(delta) {
+    if (!tocItems.length) return;
+    const idx = currentHeadingIndex();
+    let next;
+    if (delta > 0) next = Math.min(tocItems.length - 1, (idx < 0 ? -1 : idx) + 1);
+    else next = Math.max(0, idx < 0 ? 0 : idx - 1);
+    scrollToHeading(tocItems[next]);
+  }
+
+  function updateTocActive() {
+    if (!tocItems.length) return;
+    const idx = currentHeadingIndex();
     const links = tocList.querySelectorAll("a");
     links.forEach((a, i) => a.classList.toggle("active", i === idx));
+    const active = idx >= 0 ? links[idx] : null;
+    if (!active) return;
+    const parentRect = tocList.getBoundingClientRect();
+    const linkRect = active.getBoundingClientRect();
+    if (linkRect.top < parentRect.top) {
+      tocList.scrollTop -= parentRect.top - linkRect.top + 8;
+    } else if (linkRect.bottom > parentRect.bottom) {
+      tocList.scrollTop += linkRect.bottom - parentRect.bottom + 8;
+    }
   }
 
   function openToc() {
+    if (isWideReading()) {
+      document.body.classList.remove("toc-collapsed");
+      localStorage.setItem(TOC_PREF_KEY, "expanded");
+      syncTocExpanded();
+      return;
+    }
     toc.classList.add("open");
     tocToggle.setAttribute("aria-expanded", "true");
   }
 
   function closeToc() {
+    if (isWideReading()) {
+      document.body.classList.add("toc-collapsed");
+      localStorage.setItem(TOC_PREF_KEY, "collapsed");
+      syncTocExpanded();
+      return;
+    }
     toc.classList.remove("open");
     tocToggle.setAttribute("aria-expanded", "false");
+  }
+
+  function closeTocOverlay() {
+    toc.classList.remove("open");
+    if (!isWideReading()) tocToggle.setAttribute("aria-expanded", "false");
   }
 
   tocToggle.addEventListener("click", () => {
@@ -353,6 +496,8 @@ console.log(greet("世界"));
     const pct = max > 0 ? sc.scrollTop / max : 0;
     progress.style.transform = `scaleX(${Math.min(1, Math.max(0, pct))})`;
     backTop.classList.toggle("show", sc.scrollTop > 240);
+    backTop.title = sc.scrollTop > 240 ? `回到顶部（${Math.round(pct * 100)}%）` : "回到顶部";
+    document.body.classList.toggle("scrolled", sc.scrollTop > 8);
     updateTocActive();
   }
 
@@ -438,6 +583,7 @@ console.log(greet("世界"));
       ? `${text.length} 字符 / ${countWords(text)} 词`
       : "0 字符";
     copyButton.disabled = !text.trim();
+    updateReadingMeta();
   }
 
   let timer = null;
@@ -451,6 +597,7 @@ console.log(greet("世界"));
   });
 
   function loadText(text, name, openReading = false) {
+    tocFilter.value = "";
     editor.value = text;
     render();
     if (name) setFilename(name);
@@ -645,8 +792,15 @@ console.log(greet("世界"));
     }
   });
 
+  function getPreviewHtml() {
+    if (preview.querySelector(".placeholder")) return "";
+    const clone = preview.cloneNode(true);
+    clone.querySelectorAll("[data-ui]").forEach((el) => el.remove());
+    return clone.innerHTML;
+  }
+
   function exportHtml() {
-    const body = preview.querySelector(".placeholder") ? "" : preview.innerHTML;
+    const body = getPreviewHtml();
     if (!body) {
       showToast("暂无内容可导出");
       return;
@@ -690,7 +844,7 @@ console.log(greet("世界"));
   });
 
   async function copyHtml() {
-    const body = preview.querySelector(".placeholder") ? "" : preview.innerHTML;
+    const body = getPreviewHtml();
     if (!body) return;
     try {
       await navigator.clipboard.writeText(body);
@@ -720,11 +874,16 @@ console.log(greet("世界"));
     btnFullscreen.title = on
       ? "退出预览（Esc 或 ⌘/Ctrl+\\）"
       : "预览模式（⌘/Ctrl+\\，Esc 退出）";
-    closeToc();
+    closeTocOverlay();
     closeDocsPanel();
+    closeJump();
+    closeHelp();
+    if (on) applyTocPref();
+    else document.body.classList.remove("toc-collapsed");
     jumpScroll(preview, 0);
     jumpScroll(document.scrollingElement, 0);
     updateScrollUI();
+    updateReadingMeta();
     saveDraft();
     if (!focusPane) return;
     if (on) {
@@ -748,12 +907,136 @@ console.log(greet("世界"));
     );
   }
 
+  /* ---------- 字号 / 跳转 / 快捷键面板 ---------- */
+
+  const TYPE_STEPS = ["sm", "md", "lg"];
+  const TYPE_KEY = "md-preview-type";
+
+  function setTypeSize(step) {
+    const next = TYPE_STEPS.includes(step) ? step : "md";
+    document.body.dataset.typeSize = next;
+    localStorage.setItem(TYPE_KEY, next);
+    btnTypeDown.disabled = next === "sm";
+    btnTypeUp.disabled = next === "lg";
+  }
+
+  function shiftTypeSize(delta) {
+    const idx = Math.max(0, Math.min(TYPE_STEPS.length - 1, TYPE_STEPS.indexOf(document.body.dataset.typeSize || "md") + delta));
+    setTypeSize(TYPE_STEPS[idx]);
+  }
+
+  btnTypeDown.addEventListener("click", () => shiftTypeSize(-1));
+  btnTypeUp.addEventListener("click", () => shiftTypeSize(1));
+  setTypeSize(localStorage.getItem(TYPE_KEY) || "md");
+
+  let jumpIndex = 0;
+  let jumpMatches = [];
+
+  function openJump() {
+    if (!tocItems.length) {
+      showToast("当前文档没有标题可跳转");
+      return;
+    }
+    closeDocsPanel();
+    closeHelp();
+    jumpEl.hidden = false;
+    jumpInput.value = "";
+    renderJumpList("");
+    jumpInput.focus();
+  }
+
+  function closeJump() {
+    jumpEl.hidden = true;
+  }
+
+  function renderJumpList(q) {
+    const needle = q.trim().toLowerCase();
+    jumpMatches = tocItems.filter((item) => !needle || item.h.textContent.toLowerCase().includes(needle));
+    jumpIndex = 0;
+    if (!jumpMatches.length) {
+      jumpList.innerHTML = `<li class="jump-empty">没有匹配的章节</li>`;
+      return;
+    }
+    jumpList.innerHTML = jumpMatches
+      .map(
+        (item, i) =>
+          `<li><button type="button" class="jump-item" role="option" aria-selected="${i === 0}" data-jump="${i}"><span>${escapeHtml(item.h.textContent)}</span><span class="jump-level">H${item.level}</span></button></li>`
+      )
+      .join("");
+  }
+
+  function moveJump(delta) {
+    if (!jumpMatches.length) return;
+    jumpIndex = (jumpIndex + delta + jumpMatches.length) % jumpMatches.length;
+    jumpList.querySelectorAll(".jump-item").forEach((el, i) => {
+      el.setAttribute("aria-selected", String(i === jumpIndex));
+    });
+    jumpList.querySelector(`[data-jump="${jumpIndex}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function confirmJump() {
+    const match = jumpMatches[jumpIndex];
+    if (!match) return;
+    closeJump();
+    scrollToHeading(match);
+  }
+
+  jumpInput.addEventListener("input", () => renderJumpList(jumpInput.value));
+  jumpList.addEventListener("click", (e) => {
+    const btn = e.target.closest(".jump-item");
+    if (!btn) return;
+    jumpIndex = Number(btn.dataset.jump);
+    confirmJump();
+  });
+  jumpEl.addEventListener("click", (e) => {
+    if (e.target === jumpEl) closeJump();
+  });
+
+  function openHelp() {
+    closeDocsPanel();
+    closeJump();
+    helpEl.hidden = false;
+  }
+
+  function closeHelp() {
+    helpEl.hidden = true;
+  }
+
+  document.getElementById("btn-help").addEventListener("click", () => {
+    if (helpEl.hidden) openHelp();
+    else closeHelp();
+  });
+  document.getElementById("help-close").addEventListener("click", closeHelp);
+  helpEl.addEventListener("click", (e) => {
+    if (e.target === helpEl) closeHelp();
+  });
+
   document.addEventListener("keydown", (e) => {
     const mod = e.metaKey || e.ctrlKey;
+    const typing = isTypingTarget(e.target);
+    const reading = document.body.classList.contains("reading-mode");
+
+    if (!jumpEl.hidden) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        moveJump(1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        moveJump(-1);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        confirmJump();
+        return;
+      }
+    }
 
     if (mod && e.key.toLowerCase() === "o") {
       e.preventDefault();
-      if (!document.body.classList.contains("reading-mode")) fileInput.click();
+      fileInput.click();
       return;
     }
 
@@ -763,13 +1046,28 @@ console.log(greet("世界"));
       return;
     }
 
+    if (mod && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      if (jumpEl.hidden) openJump();
+      else closeJump();
+      return;
+    }
+
     if (mod && e.key === "\\") {
       e.preventDefault();
-      setReading(!document.body.classList.contains("reading-mode"));
+      setReading(!reading);
       return;
     }
 
     if (e.key === "Escape") {
+      if (!jumpEl.hidden) {
+        closeJump();
+        return;
+      }
+      if (!helpEl.hidden) {
+        closeHelp();
+        return;
+      }
       if (!docsPanel.hidden) {
         closeDocsPanel();
         return;
@@ -778,19 +1076,36 @@ console.log(greet("世界"));
         closeToc();
         return;
       }
-      if (document.body.classList.contains("reading-mode")) {
-        setReading(false);
-      }
+      if (reading) setReading(false);
       return;
     }
 
-    if (
-      !mod &&
-      e.key.toLowerCase() === "t" &&
-      !isTypingTarget(e.target) &&
-      document.body.classList.contains("reading-mode")
-    ) {
+    if (!mod && !typing && e.key === "/") {
+      e.preventDefault();
+      openJump();
+      return;
+    }
+
+    if (!mod && !typing && e.key === "?") {
+      e.preventDefault();
+      if (helpEl.hidden) openHelp();
+      else closeHelp();
+      return;
+    }
+
+    if (!mod && !typing && reading && (e.key === "[" || e.key === "]")) {
+      e.preventDefault();
+      jumpHeading(e.key === "]" ? 1 : -1);
+      return;
+    }
+
+    if (!mod && !typing && e.key.toLowerCase() === "t" && reading) {
       if (toc.hidden) return;
+      if (isWideReading()) {
+        if (document.body.classList.contains("toc-collapsed")) openToc();
+        else closeToc();
+        return;
+      }
       if (toc.classList.contains("open")) closeToc();
       else openToc();
     }
