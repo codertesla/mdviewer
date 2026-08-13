@@ -102,6 +102,12 @@ const a = 1;
   );
 
   check("表格已渲染", !!preview.querySelector("table td"));
+  const table = preview.querySelector("table");
+  const tableScroll = table?.parentElement;
+  check("表格具有独立滚动容器", tableScroll?.classList.contains("table-scroll"));
+  check("表格保留原生布局", win.getComputedStyle(table).display === "table");
+  check("表格默认铺满容器", win.getComputedStyle(table).width === "100%");
+  check("宽表由外层容器滚动", win.getComputedStyle(tableScroll).overflowX === "auto");
   check("任务列表复选框保留", !!preview.querySelector('input[type="checkbox"]'));
   check("代码块语言标签", preview.querySelector(".lang-badge")?.textContent === "js");
   check("数字列右对齐", !!preview.querySelector("td.num"));

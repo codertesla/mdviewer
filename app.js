@@ -205,6 +205,13 @@ console.log(greet("世界"));
 
   function enhanceTables() {
     preview.querySelectorAll("table").forEach((table) => {
+      if (!table.parentElement?.classList.contains("table-scroll")) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "table-scroll";
+        table.before(wrapper);
+        wrapper.appendChild(table);
+      }
+
       const rows = [...table.querySelectorAll("tr")];
       if (rows.length < 2) return;
       const colCount = rows[0].children.length;

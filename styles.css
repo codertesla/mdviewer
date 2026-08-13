@@ -1314,18 +1314,25 @@ body.reading-mode .back-top {
   pointer-events: none;
 }
 
-.preview table {
+.preview .table-scroll {
   margin: 1.25em 0;
-  border-collapse: separate;
-  border-spacing: 0;
   width: 100%;
   display: block;
   overflow-x: auto;
-  font-size: 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
+}
+
+.preview table {
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 100%;
+  display: table;
+  font-size: 14px;
 }
 
 .preview th,
