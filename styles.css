@@ -672,8 +672,14 @@ body.reading-mode .topbar {
   top: 0;
 }
 
-body.reading-mode .edit-only {
+body.reading-mode #btn-sample,
+body.reading-mode #btn-clear {
   display: none;
+}
+
+/* The docs popover must sit above the persistent reading-mode TOC. */
+body.docs-open .topbar {
+  z-index: 50;
 }
 
 body.reading-mode::-webkit-scrollbar {

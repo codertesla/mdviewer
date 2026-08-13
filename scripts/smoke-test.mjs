@@ -36,6 +36,11 @@ async function boot() {
     removeEventListener() {},
   });
 
+  // 外链样式表不会由 jsdom 自动加载；注入后才能覆盖显示状态和层级回归。
+  const style = dom.window.document.createElement("style");
+  style.textContent = await read("styles.css");
+  dom.window.document.head.appendChild(style);
+
   // index.html 里的 <script src> 在 jsdom 中不会自动拉取，按页面顺序手动注入。
   for (const file of ["lib/marked.umd.js", "lib/purify.min.js", "app.js"]) {
     const script = dom.window.document.createElement("script");
@@ -163,6 +168,29 @@ const a = 1;
 
   await fakeScroll(0);
   check("回到顶部后按钮隐藏", backTop.classList.contains("show") === false);
+}
+
+{
+  // 阅读模式隐藏低频编辑操作，但必须保留打开文件；文档弹窗要盖在固定 TOC 上方。
+  win.document.body.classList.add("reading-mode");
+  check("已进入阅读模式", win.document.body.classList.contains("reading-mode"));
+  check(
+    "阅读模式隐藏示例按钮",
+    win.getComputedStyle(win.document.getElementById("btn-sample")).display === "none"
+  );
+  check(
+    "阅读模式隐藏清空按钮",
+    win.getComputedStyle(win.document.getElementById("btn-clear")).display === "none"
+  );
+  check(
+    "阅读模式保留打开按钮",
+    win.getComputedStyle(win.document.getElementById("btn-open")).display !== "none"
+  );
+
+  win.document.getElementById("btn-docs").click();
+  const topbarZ = Number(win.getComputedStyle(win.document.querySelector(".topbar")).zIndex);
+  const tocZ = Number(win.getComputedStyle(win.document.getElementById("toc")).zIndex);
+  check("文档弹窗所在顶栏高于 TOC", topbarZ > tocZ, `topbar=${topbarZ}, toc=${tocZ}`);
 }
 
 win.close();

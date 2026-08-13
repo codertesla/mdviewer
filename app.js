@@ -609,11 +609,13 @@ console.log(greet("世界"));
     renderDocsPanel();
     closeToc();
     docsPanel.hidden = false;
+    document.body.classList.add("docs-open");
     btnDocs.setAttribute("aria-expanded", "true");
   }
 
   function closeDocsPanel() {
     docsPanel.hidden = true;
+    document.body.classList.remove("docs-open");
     btnDocs.setAttribute("aria-expanded", "false");
   }
 
